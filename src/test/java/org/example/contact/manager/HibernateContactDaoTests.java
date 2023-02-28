@@ -103,8 +103,8 @@ public record HibernateContactDaoTests() {
 
         contactDao.deleteContact(contactId);
 
-        assertThatThrownBy(() -> contactDao.getContact(contactId))
-                .isInstanceOf(EmptyResultDataAccessException.class);
+        var contactFromDB = contactDao.getContact(contactId);
+        assertThat(contactFromDB).isEqualTo(null);
 
     }
 }

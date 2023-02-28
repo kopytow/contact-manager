@@ -23,7 +23,7 @@ public class HibernateContactDao implements ContactDao {
     public List<Contact> getAllContacts() {
         String hql = "FROM Contact";
         try (var session = sessionFactory.openSession()) {
-            Query query = (Query) session.createQuery(hql);
+            Query query = session.createQuery(hql);
             return query.list();
         }
     }
