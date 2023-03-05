@@ -1,13 +1,11 @@
 package org.example.contact.manager;
 
-import org.junit.jupiter.api.BeforeAll;
+import org.example.Main;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.dao.EmptyResultDataAccessException;
-import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.jdbc.Sql;
-import org.springframework.test.context.junit.jupiter.SpringExtension;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.ApplicationContext;
 
 import java.util.List;
 
@@ -15,23 +13,20 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Unit tests for {@link ContactDao}.
+ * Unit tests for {@link ContactRepository}.
  *
  * Аннотация @Sql подтягивает SQL-скрипт contact.sql, который будет применен к базе перед выполнением теста.
  * Contact.sql создает таблицу CONTACT с полями (ID, NAME, SURNAME, EMAIL, PHONE_NUMBER) и вставляет в нее 2 записи.
  *
- * Тесты проверяют корректность реализации ContactDao.
+ * Тесты проверяют корректность реализации ContactRepository.
  */
-@ExtendWith(SpringExtension.class)
-@ContextConfiguration(classes = ContactConfiguration.class)
-@Sql("classpath:contact.sql")
-public record HibernateContactDaoTests() {
+@SpringBootTest(classes = Main.class)@Sql("classpath:contact.sql")
+public class ContactRepositoryTests {
 
-    private static ContactDao contactDao;
+    private ContactRepository contactRepository;
 
-    @BeforeAll
-    public static void init(@Autowired ContactDao cd) {
-        contactDao = cd;
+    public ContactRepositoryTests(@Autowired ContactRepository cd) {
+        contactRepository = cd;
     }
 
     private static final Contact IVAN = new Contact(
@@ -48,26 +43,35 @@ public record HibernateContactDaoTests() {
     private static final List<Contact> PERSISTED_CONTACTS = List.of(IVAN, MARIA);
 
     @Test
+    void contextLoads(ApplicationContext context) {
+        assertThat(context).isNotNull();
+    }
+    @Test
+    void hasContactRepositoryConfigured(ApplicationContext context) {
+        assertThat(context.getBean(ContactRepository.class)).isNotNull();
+    }
+
+    @Test
     void addContact() {
         var contact = new Contact("Jackie", "Chan", "jchan@gmail.com", "1234567890");
-        var contactId = contactDao.addContact(contact);
+        var contactId = contactRepository.save(contact).getId();
         contact.setId(contactId);
 
-        var contactInDb = contactDao.getContact(contactId);
+        var contactInDb = contactRepository.findById(contactId);
 
-        assertThat(contactInDb).isEqualTo(contact);
+        assertThat(contactInDb.get()).isEqualTo(contact);
     }
 
     @Test
     void getContact() {
-        var contact = contactDao.getContact(IVAN.getId());
+        var contact = contactRepository.findById(IVAN.getId());
 
-        assertThat(contact).isEqualTo(IVAN);
+        assertThat(contact.get()).isEqualTo(IVAN);
     }
 
     @Test
     void getAllContacts() {
-        var contacts = contactDao.getAllContacts();
+        var contacts = contactRepository.findAll();
 
         assertThat(contacts).containsAll(PERSISTED_CONTACTS);
     }
@@ -75,36 +79,38 @@ public record HibernateContactDaoTests() {
     @Test
     void updatePhoneNumber() {
         var contact = new Contact("Jekyll", "Hide", "jhide@gmail.com", "");
-        var contactId = contactDao.addContact(contact);
+        var contactId = contactRepository.save(contact).getId();
 
         var newPhone = "777-77-77";
-        contactDao.updatePhoneNumber(contactId, newPhone);
+        contactRepository.updatePhone(contactId, newPhone);
 
-        var updatedContact = contactDao.getContact(contactId);
+        var updatedContact = contactRepository.findById(contactId)
+                        .orElseThrow(() -> new IllegalArgumentException());
         assertThat(updatedContact.getPhone()).isEqualTo(newPhone);
     }
 
     @Test
     void updateEmail() {
         var contact = new Contact("Captain", "America", "", "");
-        var contactId = contactDao.addContact(contact);
+        var contactId = contactRepository.save(contact).getId();
 
         var newEmail = "cap@gmail.com";
-        contactDao.updateEmail(contactId, newEmail);
+        contactRepository.updateEmail(contactId, newEmail);
 
-        var updatedContact = contactDao.getContact(contactId);
+        var updatedContact = contactRepository.findById(contactId)
+                .orElseThrow(() -> new IllegalArgumentException());
         assertThat(updatedContact.getEmail()).isEqualTo(newEmail);
     }
 
     @Test
     void deleteContact() {
         var contact = new Contact("To be", "Deleted", "", "");
-        var contactId = contactDao.addContact(contact);
+        var contactId = contactRepository.save(contact).getId();
 
-        contactDao.deleteContact(contactId);
+        contactRepository.deleteById(contactId);
 
-        var contactFromDB = contactDao.getContact(contactId);
-        assertThat(contactFromDB).isEqualTo(null);
+        var contactFromDB = contactRepository.findById(contactId);
+        assertThat(contactFromDB).isEmpty();
 
     }
 }
